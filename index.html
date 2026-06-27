@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>物語チャット</title>
+<style>
+  :root{
+    --bg:#141319; --bg-2:#100F15; --surface:#24222F; --surface-edge:#322F40; --field:#211F2B;
+    --name:#A9A2BC; --text:#ECEAF2; --muted:#6E6A7E; --accent:#8E7CDD; --accent-dim:#463A6B; --line:#2C2A38;
+    --narr:#D7D4E0; --action:#938DA6; --user-bg-1:#473A6E; --user-bg-2:#5A4B8E; --user-text:#F2EEFB;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{background:radial-gradient(120% 80% at 50% -10%, #1C1A26 0%, var(--bg) 45%, var(--bg-2) 100%);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",Meiryo,sans-serif;
+    display:flex;justify-content:center;min-height:100dvh}
+  #app{width:100%;max-width:480px;background:linear-gradient(180deg,#16151C 0%,#131218 100%);
+    display:flex;flex-direction:column;min-height:100dvh;box-shadow:0 0 60px rgba(0,0,0,.5);position:relative}
+
+  .hd{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:10px;padding:14px;
+    background:rgba(18,17,23,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+  .hd .ic{width:26px;height:26px;display:grid;place-items:center;color:var(--name);cursor:pointer;flex:none}
+  .hd .ic svg{width:20px;height:20px}
+  .hd h1{flex:1;font-size:16px;font-weight:700;color:#F1EFF6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hd .sub{font-size:11px;color:var(--accent);margin-top:2px;font-weight:500}
+  .hd .titlewrap{flex:1;min-width:0}
+  .hd .btn{font-size:13px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--accent-dim),var(--accent));padding:7px 14px;border-radius:18px;border:none;cursor:pointer;font-family:inherit;flex:none}
+  .hd .lite{font-size:13px;color:var(--muted);padding:6px 8px;cursor:pointer}
+  .hd .menu{font-size:22px;color:var(--name);cursor:pointer;flex:none;line-height:1}
+  svg{display:block}
+
+  .body{flex:1;overflow-y:auto;padding:18px 16px 40px}
+  .center{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--muted);padding:60px 20px;gap:12px}
+
+  /* 一覧 */
+  .plotcard{display:flex;gap:13px;align-items:center;background:var(--surface);border:1px solid var(--surface-edge);
+    border-radius:14px;padding:12px;margin-bottom:12px;cursor:pointer}
+  .thumb{width:54px;height:72px;border-radius:10px;flex:none;overflow:hidden;background:linear-gradient(160deg,#3a4a6a,#23304a);position:relative}
+  .thumb img{width:100%;height:100%;object-fit:cover}
+  .thumb .ph{position:absolute;inset:0;display:grid;place-items:center;color:#8a93b5;font-size:20px;font-weight:700}
+  .plotcard .info{flex:1;min-width:0}
+  .plotcard .info b{font-size:15px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .plotcard .info p{font-size:12px;color:var(--muted);margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.5}
+  .plotcard .edit{color:var(--muted);font-size:18px;padding:4px 6px;flex:none}
+
+  .fab{position:sticky;bottom:18px;float:right;margin-right:4px}
+  .fab button{background:linear-gradient(135deg,var(--accent-dim),var(--accent));color:#fff;border:none;border-radius:24px;
+    padding:13px 20px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 4px 16px rgba(142,124,221,.45)}
+
+  /* 共通フォーム */
+  .sec-h{font-size:13px;color:var(--accent);font-weight:700;letter-spacing:.04em;margin:6px 0 12px}
+  .sec-h:not(:first-child){margin-top:28px}
+  label.f{display:block;font-size:12.5px;color:var(--name);margin:0 0 6px 2px;font-weight:500}
+  .hint{font-size:11px;color:var(--muted);margin:5px 2px 0;line-height:1.5}
+  input.t,textarea.t{width:100%;background:var(--field);border:1px solid var(--surface-edge);border-radius:10px;
+    padding:11px 13px;color:var(--text);font-size:14px;font-family:inherit;outline:none;line-height:1.6}
+  input.t:focus,textarea.t:focus{border-color:var(--accent)}
+  textarea.t{resize:vertical;min-height:80px}
+  .field-wrap{margin-bottom:18px}
+  .add-btn{width:100%;background:transparent;border:1.5px dashed var(--surface-edge);border-radius:12px;padding:13px;color:var(--accent);font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit}
+  .add-btn:active{background:#1C1A26}
+  .danger{color:#E08A8A;border-color:#5a3030}
+
+  .tabs{position:sticky;top:57px;z-index:15;display:flex;background:rgba(18,17,23,.9);backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{flex:none;padding:13px 16px;font-size:13.5px;color:var(--muted);font-weight:500;border-bottom:2px solid transparent;white-space:nowrap;cursor:pointer}
+  .tab.on{color:#fff;border-bottom-color:var(--accent)}
+  .pane{display:none}.pane.on{display:block}
+
+  .cover-slot{width:132px;height:180px;border-radius:14px;border:1.5px dashed var(--surface-edge);background:var(--field);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--muted);overflow:hidden;position:relative;cursor:pointer}
+  .cover-slot.filled{border:none}
+  .cover-slot svg{width:26px;height:26px}.cover-slot small{font-size:11px}
+  .cover-slot .edit{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);color:#fff;font-size:11px;text-align:center;padding:5px}
+
+  .imgstrip{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+  .imgstrip::-webkit-scrollbar{display:none}
+  .pic{position:relative;width:78px;height:104px;border-radius:11px;overflow:hidden;flex:none;background:#2a2838;cursor:pointer}
+  .pic img{width:100%;height:100%;object-fit:cover}
+  .pic .badge{position:absolute;top:5px;left:5px;background:var(--accent);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;z-index:2}
+  .pic .setmain{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.5);color:#cfc6ee;font-size:9.5px;text-align:center;padding:3px;cursor:pointer;z-index:2}
+  .pic .del{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.55);color:#fff;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:11px;z-index:2}
+  .pic.add{border:1.5px dashed var(--surface-edge);display:grid;place-items:center;color:var(--accent);font-size:24px;background:var(--field)}
+
+  .ccard{background:var(--surface);border:1px solid var(--surface-edge);border-radius:14px;padding:14px;margin-bottom:14px}
+  .ccard .cname{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px}
+  .ccard .cname input{flex:1;font-weight:700;background:transparent;border:none;color:var(--text);font-size:14px;outline:none;font-family:inherit}
+  .ccard .cdel{color:var(--muted);font-size:16px;cursor:pointer;flex:none}
+
+  .seg{display:flex;gap:7px;flex-wrap:wrap}.block{margin-bottom:20px}
+  .chip{padding:8px 14px;border-radius:10px;background:var(--field);border:1px solid var(--surface-edge);color:var(--name);font-size:13px;cursor:pointer;font-family:inherit}
+  .chip.on{background:var(--accent-dim);border-color:var(--accent);color:#fff;font-weight:600}
+  .row-tg{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}
+  .row-tg .lab{font-size:13.5px}.row-tg .lab small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+  .toggle{width:42px;height:24px;border-radius:14px;background:var(--field);border:1px solid var(--surface-edge);position:relative;cursor:pointer;flex:none}
+  .toggle::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--muted);transition:.2s}
+  .toggle.on{background:var(--accent-dim);border-color:var(--accent)}.toggle.on::after{left:21px;background:#fff}
+
+  .lb{display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--surface-edge);border-radius:12px;padding:13px 14px;margin-bottom:10px;gap:10px}
+  .lb .info{min-width:0}.lb .info b{font-size:14px}.lb .info p{font-size:11.5px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .link-btn{font-size:12px;font-weight:600;border-radius:16px;padding:6px 13px;cursor:pointer;border:1px solid var(--accent);color:var(--accent);background:transparent;flex:none}
+  .link-btn.linked{background:var(--accent-dim);border-color:var(--accent-dim);color:#fff}
+
+  /* イントロ作成 */
+  .iblock{display:flex;gap:10px;align-items:flex-start;background:var(--surface);border:1px solid var(--surface-edge);border-radius:12px;padding:11px 12px;margin-bottom:10px}
+  .iblock .rp{flex:none;font-size:10.5px;font-weight:700;border-radius:7px;padding:5px 8px;min-width:64px;text-align:center}
+  .rp-narr{background:#23222C;color:var(--name);border:1px solid var(--line)}
+  .rp-char{background:#2A2233;color:#D9A7C9;border:1px solid #4A3550}
+  .rp-user{background:var(--accent-dim);color:#fff}
+  .iblock .itx{flex:1;font-size:13px;line-height:1.7;white-space:pre-wrap;min-width:0;word-break:break-word}
+  .iblock .iact span{color:var(--muted);font-size:14px;cursor:pointer;margin-left:6px}
+  .var{color:var(--accent);font-weight:700}
+  .composer{position:sticky;bottom:0;background:rgba(16,15,21,.95);backdrop-filter:blur(12px);border-top:1px solid var(--line);margin:14px -16px -40px;padding:10px 14px calc(12px + env(safe-area-inset-bottom))}
+  .spk{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;margin-bottom:9px}
+  .spk::-webkit-scrollbar{display:none}
+  .spk .s{flex:none;font-size:12px;color:var(--muted);padding:5px 2px;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
+  .spk .s.on{color:#fff;border-bottom-color:var(--accent);font-weight:600}
+
+  /* チャット */
+  .stream{display:flex;flex-direction:column;gap:18px}
+  .disclaimer{text-align:center;font-size:11px;color:var(--muted);margin:0 0 4px}
+  .narr{color:var(--narr);font-size:14.5px;line-height:2.0;letter-spacing:.03em;padding:2px 6px 2px 16px;position:relative;text-align:justify}
+  .narr::before{content:"";position:absolute;left:2px;top:6px;bottom:6px;width:2px;background:linear-gradient(180deg,var(--accent),transparent);border-radius:2px;opacity:.55}
+  .char{display:flex;gap:10px;align-items:flex-start}
+  .avatar{width:38px;height:38px;border-radius:50%;flex:none;overflow:hidden;background:#3A3848;display:grid;place-items:center;color:#cfc6ee;font-size:15px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+  .avatar img{width:100%;height:100%;object-fit:cover}
+  .char .bd{min-width:0;max-width:80%}.char .nm{font-size:12px;color:var(--name);margin:1px 0 5px 2px;font-weight:500}
+  .bubble{background:var(--surface);border:1px solid var(--surface-edge);border-radius:4px 14px 14px 14px;padding:11px 13px;font-size:14px;line-height:1.75;word-break:break-word}
+  .line{display:block}.line+.line{margin-top:.7em}
+  .line.act{color:var(--action);font-style:italic;font-size:13px}
+  .user{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+  .user .nm{font-size:12px;color:var(--accent);margin-right:4px;font-weight:600}
+  .user .bubble{background:linear-gradient(135deg,var(--user-bg-1),var(--user-bg-2));border:none;color:var(--user-text);border-radius:14px 4px 14px 14px;max-width:82%}
+  .user .line.act{color:#CFC6EE}
+  .msg-tools{display:flex;gap:8px;margin-top:4px}
+  .msg-tools span{font-size:11px;color:var(--muted);cursor:pointer}
+  .divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:11.5px;letter-spacing:.06em;margin:2px 4px}
+  .divider::before,.divider::after{content:"";height:1px;flex:1;background:var(--line)}
+  .typing{color:var(--muted);font-size:13px;padding:6px 16px}
+
+  .chatinput{position:sticky;bottom:0;display:flex;align-items:flex-end;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+    background:rgba(16,15,21,.92);backdrop-filter:blur(12px);border-top:1px solid var(--line);margin:0 -16px -40px}
+  .chatinput .star{flex:none;width:38px;height:38px;border-radius:10px;background:#221F2C;border:1px solid var(--surface-edge);color:var(--accent);font-size:18px;display:grid;place-items:center;cursor:pointer}
+  .chatinput textarea{flex:1;background:#211F2B;border:1px solid var(--surface-edge);border-radius:20px;padding:9px 14px;min-height:38px;max-height:120px;color:var(--text);font-size:14px;line-height:1.5;font-family:inherit;resize:none;outline:none}
+  .chatinput textarea:focus{border-color:var(--accent)}
+  .chatinput .send{flex:none;width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--user-bg-2),var(--accent));border:none;color:#fff;display:grid;place-items:center;cursor:pointer}
+  .chatinput .send:disabled{opacity:.5}
+
+  /* モーダル */
+  .modal{position:fixed;inset:0;background:rgba(8,8,12,.74);display:none;align-items:center;justify-content:center;z-index:50;padding:22px}
+  .modal.on{display:flex}
+  .sheet{width:100%;max-width:340px;background:#1B1A22;border:1px solid var(--surface-edge);border-radius:20px;padding:20px}
+  .sheet h3{font-size:15px;margin-bottom:4px}.sheet .sub{font-size:11.5px;color:var(--muted);margin-bottom:14px;line-height:1.5}
+  .frame-wrap{display:flex;gap:14px;align-items:center;margin-bottom:6px}
+  .frame{overflow:hidden;position:relative;flex:none;background:#0E0D12;touch-action:none;cursor:grab}
+  .frame.circle{width:150px;height:150px;border-radius:50%;border:2px solid var(--accent)}
+  .frame.portrait{width:120px;height:160px;border-radius:10px;border:2px solid var(--accent)}
+  .frame img{position:absolute;left:50%;top:50%;will-change:transform;user-select:none;-webkit-user-drag:none;max-width:none}
+  .fullprev{flex:1}.fullprev .lab{font-size:10.5px;color:var(--muted);margin-bottom:5px}
+  .fullprev .full{width:100%;aspect-ratio:3/4;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:#0E0D12}
+  .fullprev .full img{width:100%;height:100%;object-fit:contain}
+  .drag-note{text-align:center;font-size:11px;color:var(--muted);margin:10px 0}
+  .zoom{display:flex;align-items:center;gap:10px;margin-bottom:16px}.zoom span{font-size:12px;color:var(--muted)}
+  input[type=range]{flex:1;accent-color:var(--accent)}
+  .acts{display:flex;gap:10px}
+  .acts button{flex:1;padding:11px;border-radius:12px;font-size:13.5px;font-weight:600;border:none;cursor:pointer;font-family:inherit}
+  .btn-cancel{background:var(--field);color:var(--name)}.btn-apply{background:linear-gradient(135deg,var(--accent-dim),var(--accent));color:#fff}
+
+  .lentry{background:var(--surface);border:1px solid var(--surface-edge);border-radius:12px;padding:12px;margin-bottom:10px}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#2A2838;color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;z-index:80;opacity:0;transition:.25s;pointer-events:none;border:1px solid var(--surface-edge)}
+  .toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="modal" id="cropModal"><div class="sheet">
+  <h3 id="cropTitle">表示位置を調整</h3>
+  <div class="sub">元のアートは切り取らず保持します。枠に映る位置とサイズだけ決めます。</div>
+  <div class="frame-wrap">
+    <div class="frame circle" id="frame"></div>
+    <div class="fullprev"><div class="lab">元画像（全体・保持）</div><div class="full" id="fullPrev"></div></div>
+  </div>
+  <div class="drag-note">枠をドラッグで位置調整</div>
+  <div class="zoom"><span>－</span><input type="range" min="100" max="300" value="100" id="zoom"><span>＋</span></div>
+  <div class="acts"><button class="btn-cancel" id="cropCancel">キャンセル</button><button class="btn-apply" id="cropApply">適用</button></div>
+</div></div>
+<input type="file" id="filePick" accept="image/*" style="display:none">
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ===================== ユーティリティ ===================== */
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const now=()=>new Date().toISOString();
+const esc=s=>(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const $=s=>document.querySelector(s);
+const APP=$("#app");
+function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("on");clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove("on"),1800);}
+
+/* ===================== IndexedDB ===================== */
+const DB={_db:null};
+function openDB(){return new Promise((res,rej)=>{
+  const r=indexedDB.open("monogatari_chat",1);
+  r.onupgradeneeded=e=>{const db=e.target.result;
+    ["plots","personas","lorebooks","sessions"].forEach(s=>{if(!db.objectStoreNames.contains(s))db.createObjectStore(s,{keyPath:"id"});});
+    if(!db.objectStoreNames.contains("kv"))db.createObjectStore("kv",{keyPath:"k"});
+  };
+  r.onsuccess=e=>{DB._db=e.target.result;res();};
+  r.onerror=e=>rej(e.target.error);
+});}
+function tx(store,mode){return DB._db.transaction(store,mode).objectStore(store);}
+function idbAll(store){return new Promise((res,rej)=>{const r=tx(store,"readonly").getAll();r.onsuccess=()=>res(r.result||[]);r.onerror=()=>rej(r.error);});}
+function idbPut(store,obj){return new Promise((res,rej)=>{const r=tx(store,"readwrite").put(obj);r.onsuccess=()=>res();r.onerror=()=>rej(r.error);});}
+function idbDel(store,id){return new Promise((res,rej)=>{const r=tx(store,"readwrite").delete(id);r.onsuccess=()=>res();r.onerror=()=>rej(r.error);});}
+function kvGet(k){return new Promise((res)=>{const r=tx("kv","readonly").get(k);r.onsuccess=()=>res(r.result?r.result.v:undefined);r.onerror=()=>res(undefined);});}
+function kvPut(k,v){return new Promise((res,rej)=>{const r=tx("kv","readwrite").put({k,v});r.onsuccess=()=>res();r.onerror=()=>rej(r.error);});}
+
+/* ===================== 状態（メモリキャッシュ） ===================== */
+const S={plots:[],personas:[],lorebooks:[],sessions:[],settings:{apiKey:"",model:"gemini-2.5-flash",temperature:0.9}};
+async function loadAll(){
+  S.plots=await idbAll("plots"); S.personas=await idbAll("personas");
+  S.lorebooks=await idbAll("lorebooks"); S.sessions=await idbAll("sessions");
+  const st=await kvGet("settings"); if(st) S.settings=Object.assign(S.settings,st);
+  if(S.personas.length===0){ // 初期ペルソナ
+    const p={id:uid(),name:"00",description:"",isDefault:true,avatar:null};
+    S.personas.push(p); await idbPut("personas",p);
+  }
+}
+const savePlot=p=>{p.updatedAt=now();return idbPut("plots",p);};
+const savePersona=p=>idbPut("personas",p);
+const saveLore=l=>idbPut("lorebooks",l);
+const saveSession=s=>{s.updatedAt=now();return idbPut("sessions",s);};
+const saveSettings=()=>kvPut("settings",S.settings);
+
+/* ===================== 既定値・定数 ===================== */
+function defaultStyle(){return{person:"三人称",tense:"過去形",length:"自動",expression:"基本",
+  mood:["シリアス"],writingStyle:"設定しない",difficulty:"普通",pace:"自然",choiceSuggestions:false,infobox:false};}
+const STYLE_OPTS={
+  person:["一人称","二人称","三人称"],tense:["過去形","現在形"],length:["短い","中間","長い","自動"],
+  expression:["会話多め","基本","行動多め"],
+  mood:["ロマンス","癒し","シリアス","ヤンデレ","ファンタジー","アクション","ミステリー","ホラー"],
+  writingStyle:["恋愛心理小説","ハードボイルド","夜想文学","温かな青春物語","王道ファンタジー","ライトノベル","心理ホラー","設定しない"],
+  difficulty:["簡単","普通","難しい","極限"],pace:["速い","自然","遅い"]
+};
+
+/* ===================== 画像（非破壊フレーミング） ===================== */
+function newImageRef(src){return{id:uid(),src,focalX:0.5,focalY:0.5,zoom:1};}
+function framedStyle(img){ // object-fit cover + focal + zoom
+  if(!img||!img.src)return "";
+  const z=img.zoom||1;
+  return `background-image:url('${img.src}');background-size:${z*100}%;background-position:${(img.focalX*100)||50}% ${(img.focalY*100)||50}%;background-repeat:no-repeat;`;
+}
+function imgEl(img,cls){ // <img> with object-position for cover slots
+  if(!img||!img.src)return "";
+  const z=img.zoom||1;
+  return `<img class="${cls||''}" src="${img.src}" style="object-fit:cover;object-position:${(img.focalX*100)}% ${(img.focalY*100)}%;transform:scale(${z});">`;
+}
+function pickImage(){return new Promise(res=>{
+  const fp=$("#filePick"); fp.value="";
+  fp.onchange=()=>{const f=fp.files[0]; if(!f){res(null);return;}
+    const r=new FileReader(); r.onload=()=>res(newImageRef(r.result)); r.readAsDataURL(f);};
+  fp.click();
+});}
+
+/* 画像調整モーダル */
+let cropState=null;
+function openCrop(shape,label,img,onApply){
+  cropState={img:Object.assign({},img),onApply};
+  const frame=$("#frame"),title=$("#cropTitle"),zoom=$("#zoom");
+  frame.className="frame "+(shape==="portrait"?"portrait":"circle");
+  title.textContent=(label||"")+"の表示位置を調整";
+  frame.innerHTML=`<img id="cropImg" src="${img.src}">`;
+  $("#fullPrev").innerHTML=`<img src="${img.src}">`;
+  const fw=shape==="portrait"?120:150, fh=shape==="portrait"?160:150;
+  const im=$("#cropImg");
+  let px=0,py=0,scale=(img.zoom||1);
+  zoom.value=Math.round(scale*100);
+  function apply(){im.style.transform=`translate(-50%,-50%) translate(${px}px,${py}px) scale(${scale})`;}
+  im.onload=()=>{ // base size: cover the frame
+    const r=im.naturalWidth/im.naturalHeight, fr=fw/fh; let bw,bh;
+    if(r>fr){bh=fh;bw=fh*r;}else{bw=fw;bh=fw/r;}
+    im.style.width=bw+"px";im.style.height=bh+"px";
+    px=(img.focalX-0.5)*-bw; py=(img.focalY-0.5)*-bh; apply();
+    cropState._calc={bw,bh};
+  };
+  if(im.complete)im.onload();
+  zoom.oninput=()=>{scale=zoom.value/100;apply();};
+  let drag=false,sx,sy;
+  frame.onpointerdown=e=>{drag=true;sx=e.clientX-px;sy=e.clientY-py;frame.setPointerCapture(e.pointerId);frame.style.cursor="grabbing";};
+  frame.onpointermove=e=>{if(!drag)return;px=e.clientX-sx;py=e.clientY-sy;apply();};
+  frame.onpointerup=()=>{drag=false;frame.style.cursor="grab";};
+  cropState._get=()=>{const c=cropState._calc||{bw:fw,bh:fh};
+    return{focalX:Math.min(1,Math.max(0,0.5-px/c.bw)),focalY:Math.min(1,Math.max(0,0.5-py/c.bh)),zoom:scale};};
+  $("#cropModal").classList.add("on");
+}
+$("#cropCancel").onclick=()=>$("#cropModal").classList.remove("on");
+$("#cropApply").onclick=()=>{
+  if(cropState){const g=cropState._get();const img=Object.assign(cropState.img,g);cropState.onApply&&cropState.onApply(img);}
+  $("#cropModal").classList.remove("on");
+};
+$("#cropModal").addEventListener("click",e=>{if(e.target.id==="cropModal")$("#cropModal").classList.remove("on");});
+
+/* ===================== 画面ルーター ===================== */
+const VIEW={name:"home"};
+function go(name,arg){VIEW.name=name;VIEW.arg=arg;render();window.scrollTo(0,0);}
+function render(){
+  if(VIEW.name==="home")renderHome();
+  else if(VIEW.name==="editor")renderEditor(VIEW.arg);
+  else if(VIEW.name==="chat")renderChat(VIEW.arg);
+  else if(VIEW.name==="manage")renderManage();
+  else if(VIEW.name==="settings")renderSettings();
+}
+const back=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>`;
+
+/* ===================== 一覧（ホーム） ===================== */
+function plotThumb(p){
+  let img=p.coverImage;
+  if(!img && p.characters && p.characters[0]){const c=p.characters[0];img=(c.images||[]).find(i=>i.id===c.mainImageId)||c.images&&c.images[0];}
+  if(img&&img.src)return `<div class="thumb">${imgEl(img)}</div>`;
+  return `<div class="thumb"><div class="ph">${esc((p.title||"?").slice(0,1))}</div></div>`;
+}
+function renderHome(){
+  const cards=S.plots.length? S.plots.map(p=>`
+    <div class="plotcard" data-open="${p.id}">
+      ${plotThumb(p)}
+      <div class="info"><b>${esc(p.title||"無題")}</b><p>${esc(p.description||"")}</p></div>
+      <div class="edit" data-edit="${p.id}">✎</div>
+    </div>`).join("")
+   : `<div class="center"><div style="font-size:34px">📖</div><div>まだ作品がありません。<br>右下から最初の作品をつくりましょう。</div></div>`;
+  APP.innerHTML=`
+    <header class="hd">
+      <div class="titlewrap"><h1>物語チャット</h1></div>
+      <div class="lite" data-go="manage">管理</div>
+      <div class="lite" data-go="settings">設定</div>
+    </header>
+    <div class="body">${cards}
+      <div class="fab"><button data-new>＋ 作品をつくる</button></div>
+    </div>`;
+  APP.querySelectorAll("[data-open]").forEach(e=>e.onclick=ev=>{if(ev.target.dataset.edit)return;startChat(e.dataset.open);});
+  APP.querySelectorAll("[data-edit]").forEach(e=>e.onclick=ev=>{ev.stopPropagation();go("editor",e.dataset.edit);});
+  APP.querySelector("[data-new]").onclick=()=>go("editor",null);
+  APP.querySelector("[data-go='manage']").onclick=()=>go("manage");
+  APP.querySelector("[data-go='settings']").onclick=()=>go("settings");
+}
+
+/* ===================== 作品作成・編集 ===================== */
+let ED=null; // 編集中プロット
+function blankPlot(){return{id:uid(),title:"",description:"",coverImage:null,narratorInstruction:"",
+  characters:[],situationExamples:[],linkedLorebookIds:[],style:defaultStyle(),intro:{blocks:[]},
+  createdAt:now(),updatedAt:now(),talkCount:0};}
+function renderEditor(plotId){
+  ED= plotId? JSON.parse(JSON.stringify(S.plots.find(p=>p.id===plotId))) : blankPlot();
+  if(!ED.style)ED.style=defaultStyle(); if(!ED.intro)ED.intro={blocks:[]}; if(!ED.characters)ED.characters=[];
+  APP.innerHTML=`
+    <header class="hd">
+      <div class="ic" data-back>${back}</div>
+      <div class="titlewrap"><h1>${plotId?"作品を編集":"作品をつくる"}</h1></div>
+      <button class="btn" data-save>完成</button>
+    </header>
+    <nav class="tabs" id="tabs">
+      <div class="tab on" data-p="basic">基本</div><div class="tab" data-p="chara">キャラ</div>
+      <div class="tab" data-p="lore">設定集</div><div class="tab" data-p="style">スタイル</div>
+      <div class="tab" data-p="intro">最初の場面</div>
+    </nav>
+    <div class="body" id="edbody"></div>`;
+  APP.querySelector("[data-back]").onclick=()=>go("home");
+  APP.querySelector("[data-save]").onclick=saveEditor;
+  const tabs=$("#tabs");
+  tabs.onclick=e=>{const t=e.target.closest(".tab");if(!t)return;
+    tabs.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x===t));edTab(t.dataset.p);};
+  edTab("basic");
+}
+function edTab(p){
+  const b=$("#edbody");
+  if(p==="basic")b.innerHTML=edBasic();
+  else if(p==="chara")b.innerHTML=edChara();
+  else if(p==="lore")b.innerHTML=edLore();
+  else if(p==="style")b.innerHTML=edStyle();
+  else if(p==="intro")b.innerHTML=edIntro();
+  bindTab(p);
+  b.scrollTop=0;
+}
+function edBasic(){
+  return `<div class="sec-h">基本情報</div>
+  <label class="f">カバー画像（一覧で表示されるサムネ）</label>
+  <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:20px">
+    <div class="cover-slot ${ED.coverImage?'filled':''}" id="coverSlot">
+      ${ED.coverImage?imgEl(ED.coverImage)+'<div class="edit">位置を調整</div>':
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg><small>カバーを貼る</small>'}
+    </div>
+    <div class="hint" style="margin:0">縦長カバー。画像は切り取らず保持します。<br><br>未設定なら<b style="color:var(--name)">最初のキャラのメイン画像</b>が使われます。</div>
+  </div>
+  <div class="field-wrap"><label class="f">題名</label><input class="t" id="f_title" value="${esc(ED.title)}" placeholder="作品のタイトル"></div>
+  <div class="field-wrap"><label class="f">説明（世界観・状況・関係性）</label>
+    <textarea class="t" id="f_desc" placeholder="どんな世界で、どんな状況から始まるか">${esc(ED.description)}</textarea>
+    <div class="hint">指示文は書かなくてOK。素の設定だけでAIへの指示は自動生成します。</div></div>
+  <div class="field-wrap"><label class="f">ナレーター指示（任意・非公開／地の文の方針）</label>
+    <textarea class="t" id="f_narr" placeholder="地の文の雰囲気・描写の方針など">${esc(ED.narratorInstruction)}</textarea></div>`;
+}
+function edChara(){
+  const cards=ED.characters.map((c,ci)=>{
+    const pics=(c.images||[]).map(im=>`
+      <div class="pic" data-cedit="${ci}" data-img="${im.id}">${imgEl(im)}
+        ${c.mainImageId===im.id?'<span class="badge">メイン</span>':'<span class="setmain" data-setmain="'+ci+'" data-mid="'+im.id+'">メインにする</span>'}
+        <span class="del" data-delimg="${ci}" data-mid="${im.id}">×</span></div>`).join("");
+    return `<div class="ccard" data-ci="${ci}">
+      <div class="cname"><input value="${esc(c.name)}" placeholder="キャラの名前" data-cname="${ci}"><span class="cdel" data-delc="${ci}">🗑</span></div>
+      <label class="f">画像（複数可・1枚をメインに）</label>
+      <div class="imgstrip" style="margin-bottom:14px">${pics}<div class="pic add" data-addpic="${ci}">＋</div></div>
+      <label class="f">プロフィール（性格・口調・見た目）</label>
+      <textarea class="t" data-cprof="${ci}" placeholder="性格・口調・一人称/二人称・見た目など">${esc(c.profile)}</textarea>
+    </div>`;}).join("");
+  return `<div class="sec-h">登場キャラクター（人数制限なし）</div>${cards}
+    <button class="add-btn" data-addchar>＋ キャラクターを追加</button>
+    <div class="hint">※ ここに無い人物（モブ・敵など）も、チャット中の指示でその場で登場できます。</div>`;
+}
+function edLore(){
+  const items=S.lorebooks.length? S.lorebooks.map(l=>{
+    const linked=ED.linkedLorebookIds.includes(l.id);
+    return `<div class="lb"><div class="info"><b>${esc(l.title||"無題")}</b><p>${esc(l.description||"")}</p></div>
+      <div class="link-btn ${linked?'linked':''}" data-link="${l.id}">${linked?'連動中':'連動する'}</div></div>`;}).join("")
+    : `<div class="hint" style="margin:0 0 12px">設定集（ロアブック）はまだありません。「管理」で作れます。</div>`;
+  return `<div class="sec-h">連動する設定集（ロアブック）</div>
+    <div class="hint" style="margin:0 0 14px">登録キーワードが会話に出ると設定が自動反映されます。</div>${items}
+    <button class="add-btn" data-tomanage>＋ 管理で設定集をつくる</button>`;
+}
+function segHtml(key,label,multi){
+  const cur=ED.style[key]; const opts=STYLE_OPTS[key];
+  const chips=opts.map(o=>{const on=multi?cur.includes(o):cur===o;return `<div class="chip ${on?'on':''}" data-style="${key}" data-val="${o}" data-multi="${multi?1:0}">${o}</div>`;}).join("");
+  return `<div class="block"><label class="f">${label}</label><div class="seg">${chips}</div></div>`;
+}
+function edStyle(){
+  return `<div class="sec-h">文章の感じ</div>
+    ${segHtml("person","ナレーション視点")}${segHtml("tense","時制")}${segHtml("length","1ターンの長さ")}
+    ${segHtml("expression","表現（セリフと地の文の比率）")}${segHtml("mood","雰囲気（複数可）",true)}${segHtml("writingStyle","文体")}
+    <div class="sec-h">詳細設定</div>${segHtml("difficulty","難易度")}${segHtml("pace","展開速度")}
+    <div class="row-tg"><div class="lab">選択肢を提案<small>応答末尾に行動の候補</small></div><div class="toggle ${ED.style.choiceSuggestions?'on':''}" data-tg="choiceSuggestions"></div></div>
+    <div class="row-tg" style="border-bottom:none"><div class="lab">状況インフォボックス<small>場面・心情を冒頭に表示</small></div><div class="toggle ${ED.style.infobox?'on':''}" data-tg="infobox"></div></div>`;
+}
+function edIntro(){
+  const blocks=ED.intro.blocks.map((bk,i)=>{
+    const rp=bk.role==="narr"?["rp-narr","ナレーター"]:bk.role==="user"?["rp-user","自分"]:["rp-char",bk.name||"キャラ"];
+    return `<div class="iblock"><div class="rp ${rp[0]}">${esc(rp[1])}</div><div class="itx">${esc(bk.text)}</div>
+      <div class="iact"><span data-iedit="${i}">✎</span><span data-idel="${i}">🗑</span></div></div>`;}).join("");
+  const spk=`<div class="s on" data-r="narr">≡ ナレーター</div><div class="s" data-r="user">自分</div>`+
+    ED.characters.filter(c=>c.name).map(c=>`<div class="s" data-r="char" data-n="${esc(c.name)}">${esc(c.name)}</div>`).join("");
+  return `<div class="sec-h">最初の場面（イントロ）</div>
+    <div class="hint" style="margin:0 0 14px">下で話者を選んで打つと上に積み上がります。<span class="var">{{user}}</span> は自分の名前に置換。ナレーター1つでも始められます。</div>
+    <div id="introBlocks">${blocks||'<div class="hint">まだ何もありません。下から追加してください。</div>'}</div>
+    <div class="composer">
+      <div class="spk" id="spk">${spk}</div>
+      <div class="chatinput" style="position:static;margin:0;padding:0;background:none;border:none;backdrop-filter:none">
+        <div class="star" id="istar">*</div>
+        <textarea id="ifield" rows="1" placeholder="状況やセリフを入力…"></textarea>
+        <button class="send" id="iadd">↑</button>
+      </div></div>`;
+}
+let introRole="narr",introName="";
+function bindTab(p){
+  const b=$("#edbody");
+  if(p==="basic"){
+    $("#f_title").oninput=e=>ED.title=e.target.value;
+    $("#f_desc").oninput=e=>ED.description=e.target.value;
+    $("#f_narr").oninput=e=>ED.narratorInstruction=e.target.value;
+    $("#coverSlot").onclick=async()=>{
+      let img=ED.coverImage; if(!img){img=await pickImage(); if(!img)return; ED.coverImage=img;}
+      openCrop("portrait","カバー",ED.coverImage,r=>{ED.coverImage=r;edTab("basic");});
+    };
+  }
+  if(p==="chara"){
+    b.querySelectorAll("[data-cname]").forEach(el=>el.oninput=e=>ED.characters[+el.dataset.cname].name=e.target.value);
+    b.querySelectorAll("[data-cprof]").forEach(el=>el.oninput=e=>ED.characters[+el.dataset.cprof].profile=e.target.value);
+    b.querySelectorAll("[data-delc]").forEach(el=>el.onclick=()=>{ED.characters.splice(+el.dataset.delc,1);edTab("chara");});
+    b.querySelector("[data-addchar]").onclick=()=>{ED.characters.push({id:uid(),name:"",profile:"",images:[],mainImageId:null});edTab("chara");};
+    b.querySelectorAll("[data-addpic]").forEach(el=>el.onclick=async()=>{const ci=+el.dataset.addpic;const img=await pickImage();if(!img)return;
+      const c=ED.characters[ci];c.images.push(img);if(!c.mainImageId)c.mainImageId=img.id;edTab("chara");});
+    b.querySelectorAll("[data-setmain]").forEach(el=>el.onclick=e=>{e.stopPropagation();ED.characters[+el.dataset.setmain].mainImageId=el.dataset.mid;edTab("chara");});
+    b.querySelectorAll("[data-delimg]").forEach(el=>el.onclick=e=>{e.stopPropagation();const c=ED.characters[+el.dataset.delimg];
+      c.images=c.images.filter(i=>i.id!==el.dataset.mid);if(c.mainImageId===el.dataset.mid)c.mainImageId=c.images[0]?c.images[0].id:null;edTab("chara");});
+    b.querySelectorAll(".pic[data-cedit]").forEach(el=>el.onclick=()=>{const ci=+el.dataset.cedit;const c=ED.characters[ci];
+      const img=c.images.find(i=>i.id===el.dataset.img);if(!img)return;openCrop("circle","アイコン",img,r=>{Object.assign(img,r);edTab("chara");});});
+  }
+  if(p==="lore"){
+    b.querySelectorAll("[data-link]").forEach(el=>el.onclick=()=>{const id=el.dataset.link;
+      const i=ED.linkedLorebookIds.indexOf(id); if(i>=0)ED.linkedLorebookIds.splice(i,1);else ED.linkedLorebookIds.push(id);edTab("lore");});
+    const tm=b.querySelector("[data-tomanage]"); if(tm)tm.onclick=()=>{saveEditorSilent();go("manage");};
+  }
+  if(p==="style"){
+    b.querySelectorAll("[data-style]").forEach(el=>el.onclick=()=>{const k=el.dataset.style,v=el.dataset.val,multi=el.dataset.multi==="1";
+      if(multi){const a=ED.style[k];const i=a.indexOf(v);if(i>=0)a.splice(i,1);else a.push(v);}else ED.style[k]=v;edTab("style");});
+    b.querySelectorAll("[data-tg]").forEach(el=>el.onclick=()=>{ED.style[el.dataset.tg]=!ED.style[el.dataset.tg];edTab("style");});
+  }
+  if(p==="intro"){
+    const spk=$("#spk");
+    spk.onclick=e=>{const s=e.target.closest(".s");if(!s)return;spk.querySelectorAll(".s").forEach(x=>x.classList.toggle("on",x===s));
+      introRole=s.dataset.r;introName=s.dataset.n||"";};
+    const ifield=$("#ifield");
+    const grow=()=>{ifield.style.height="auto";ifield.style.height=Math.min(ifield.scrollHeight,110)+"px";};
+    ifield.oninput=grow;
+    $("#istar").onclick=()=>insertStar(ifield);
+    $("#iadd").onclick=()=>{const t=ifield.value.trim();if(!t)return;
+      ED.intro.blocks.push({role:introRole,name:introName,text:t});ifield.value="";edTab("intro");};
+    b.querySelectorAll("[data-idel]").forEach(el=>el.onclick=()=>{ED.intro.blocks.splice(+el.dataset.idel,1);edTab("intro");});
+    b.querySelectorAll("[data-iedit]").forEach(el=>el.onclick=()=>{const i=+el.dataset.iedit;const v=prompt("編集",ED.intro.blocks[i].text);if(v!=null){ED.intro.blocks[i].text=v;edTab("intro");}});
+  }
+}
+function insertStar(field){const v=field.value,s=field.selectionStart,e=field.selectionEnd,sel=v.slice(s,e),ins=sel?`*${sel}*`:"**";
+  field.value=v.slice(0,s)+ins+v.slice(e);field.focus();const c=sel?s+ins.length:s+1;field.setSelectionRange(c,c);field.dispatchEvent(new Event("input"));}
+function saveEditorSilent(){const i=S.plots.findIndex(p=>p.id===ED.id);if(i>=0)S.plots[i]=ED;else S.plots.push(ED);savePlot(ED);}
+function saveEditor(){
+  if(!ED.title.trim()){toast("題名を入れてください");return;}
+  saveEditorSilent();toast("保存しました");go("home");
+}
+
+/* ===================== チャット ===================== */
+let CUR={session:null,plot:null};
+function startChat(plotId){
+  const plot=S.plots.find(p=>p.id===plotId);if(!plot)return;
+  let session=S.sessions.filter(s=>s.plotId===plotId).sort((a,b)=>(b.updatedAt||"").localeCompare(a.updatedAt||""))[0];
+  if(!session){
+    const persona=S.personas.find(p=>p.isDefault)||S.personas[0];
+    session={id:uid(),plotId,personaId:persona?persona.id:null,messages:introToMessages(plot,persona),createdAt:now(),updatedAt:now()};
+    S.sessions.push(session);saveSession(session);
+  }
+  go("chat",session.id);
+}
+function introToMessages(plot,persona){
+  const pname=persona?persona.name:"あなた";
+  return (plot.intro.blocks||[]).map(bk=>{
+    const text=(bk.text||"").replace(/\{\{user\}\}/g,pname);
+    if(bk.role==="user")return{id:uid(),role:"user",content:text,createdAt:now()};
+    if(bk.role==="char")return{id:uid(),role:"ai",blocks:[{type:"char",name:bk.name||"",text}],raw:`[C:${bk.name||""}] ${text}`,createdAt:now()};
+    return{id:uid(),role:"ai",blocks:[{type:"narr",text}],raw:`[N] ${text}`,createdAt:now()};
+  });
+}
+function renderChat(sessionId){
+  const session=S.sessions.find(s=>s.id===sessionId);const plot=S.plots.find(p=>p.id===session.plotId);
+  CUR={session,plot};
+  const persona=S.personas.find(p=>p.id===session.personaId)||S.personas[0];
+  APP.innerHTML=`
+    <header class="hd">
+      <div class="ic" data-back>${back}</div>
+      <div class="titlewrap"><h1>${esc(plot.title)}</h1><div class="sub" id="personaLabel">${esc(persona?persona.name:"")} として参加中 ▾</div></div>
+      <div class="menu" data-cmenu>≡</div>
+    </header>
+    <div class="body"><div class="disclaimer">返答はすべてAIが生成した内容です</div><div class="stream" id="stream"></div>
+      <div class="typing" id="typing" style="display:none">…生成中</div></div>
+    <div class="chatinput">
+      <div class="star" id="cstar">*</div>
+      <textarea id="cfield" rows="1" placeholder="セリフや行動を書く…  *行動は囲む*"></textarea>
+      <button class="send" id="csend"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg></button>
+    </div>`;
+  APP.querySelector("[data-back]").onclick=()=>go("home");
+  APP.querySelector("[data-cmenu]").onclick=()=>chatMenu();
+  $("#personaLabel").onclick=switchPersona;
+  drawMessages();
+  const f=$("#cfield");
+  const grow=()=>{f.style.height="auto";f.style.height=Math.min(f.scrollHeight,120)+"px";};
+  f.oninput=grow; $("#cstar").onclick=()=>insertStar(f);
+  $("#csend").onclick=sendMessage;
+  f.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();}});
+}
+function blocksHtml(text){
+  return (text||"").split(/(\*[^*]+\*)/g).map(s=>s.trim()).filter(Boolean).map(p=>{
+    const m=p.match(/^\*([^*]+)\*$/);return m?`<span class="line act">${esc(m[1])}</span>`:`<span class="line say">${esc(p)}</span>`;}).join("");
+}
+function charAvatar(plot,name){
+  const c=(plot.characters||[]).find(x=>x.name===name);
+  if(c){const img=(c.images||[]).find(i=>i.id===c.mainImageId)||(c.images||[])[0];if(img)return `<div class="avatar">${imgEl(img)}</div>`;}
+  return `<div class="avatar">${name?esc(name.slice(0,1)):'?'}</div>`;
+}
+function drawMessages(){
+  const stream=$("#stream");const{session,plot}=CUR;const persona=S.personas.find(p=>p.id===session.personaId);
+  const pname=persona?persona.name:"あなた";
+  stream.innerHTML=session.messages.map(m=>{
+    if(m.role==="user")return `<div class="user"><div class="nm">${esc(pname)}</div><div class="bubble">${blocksHtml(m.content)}</div>
+      <div class="msg-tools"><span data-medit="${m.id}">編集</span><span data-mdel="${m.id}">削除</span></div></div>`;
+    // ai: blocks
+    return (m.blocks||[]).map(bk=>{
+      if(bk.type==="narr")return `<div class="narr">${blocksHtml(bk.text)}</div>`;
+      return `<div class="char">${charAvatar(plot,bk.name)}<div class="bd"><div class="nm">${esc(bk.name||"")}</div><div class="bubble">${blocksHtml(bk.text)}</div></div></div>`;
+    }).join("")+`<div class="msg-tools" style="margin-left:48px"><span data-medit="${m.id}">編集</span><span data-mdel="${m.id}">削除</span></div>`;
+  }).join("");
+  stream.querySelectorAll("[data-mdel]").forEach(el=>el.onclick=()=>{if(confirm("この発言を削除しますか？")){
+    session.messages=session.messages.filter(x=>x.id!==el.dataset.mdel);saveSession(session);drawMessages();}});
+  stream.querySelectorAll("[data-medit]").forEach(el=>el.onclick=()=>editMessage(el.dataset.medit));
+  $(".body").scrollTop=$(".body").scrollHeight;
+}
+function editMessage(id){
+  const m=CUR.session.messages.find(x=>x.id===id);if(!m)return;
+  const cur=m.role==="user"?m.content:(m.raw||(m.blocks||[]).map(b=>b.type==="narr"?`[N] ${b.text}`:`[C:${b.name}] ${b.text}`).join("\n"));
+  const v=prompt("編集（AI発言は [N]…／[C:名前]… 形式）",cur);if(v==null)return;
+  if(m.role==="user")m.content=v; else{m.raw=v;m.blocks=parseAI(v);}
+  saveSession(CUR.session);drawMessages();
+}
+function switchPersona(){
+  const names=S.personas.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
+  const v=prompt("分身（ペルソナ）を選択\n"+names+"\n\n番号を入力:");if(v==null)return;
+  const idx=parseInt(v,10)-1;if(S.personas[idx]){CUR.session.personaId=S.personas[idx].id;saveSession(CUR.session);renderChat(CUR.session.id);}
+}
+function chatMenu(){
+  const c=confirm("この会話を最初からやり直しますか？（OK=リセット / キャンセル=戻る）");
+  if(c){const{session,plot}=CUR;const persona=S.personas.find(p=>p.id===session.personaId);
+    session.messages=introToMessages(plot,persona);saveSession(session);drawMessages();}
+}
+
+/* ===================== ②プロンプト組み立て ＋ Gemini ===================== */
+function selectActiveCharacters(plot,session,userInput){
+  const recent=session.messages.slice(-6).map(m=>m.role==="user"?m.content:(m.raw||"")).join(" ")+" "+userInput;
+  const active=plot.characters.filter(c=>c.name && recent.includes(c.name));
+  return active.length?active:plot.characters; // 該当なしは全員（少人数想定）
+}
+function triggeredLore(plot,session,userInput){
+  const scope=session.messages.slice(-2).map(m=>m.role==="user"?m.content:(m.raw||"")).join(" ")+" "+userInput;
+  const out=[];
+  plot.linkedLorebookIds.forEach(id=>{const lb=S.lorebooks.find(l=>l.id===id);if(!lb)return;
+    (lb.entries||[]).forEach(e=>{if((e.keywords||[]).some(k=>k&&scope.includes(k)))out.push(e);});});
+  return out;
+}
+function buildSystem(plot,session,persona,userInput){
+  const st=plot.style||defaultStyle();
+  const active=selectActiveCharacters(plot,session,userInput);
+  const lore=triggeredLore(plot,session,userInput);
+  const pname=persona?persona.name:"あなた";
+  let s=`あなたは没入型の物語を進行させる小説エンジンです。設定に厳密に従い、主人公（ユーザー）の入力を受けて物語を継続してください。\n\n`;
+  s+=`# 出力フォーマット（厳守）\n`;
+  s+=`- 地の文は行頭に [N] を付ける。${st.person}・${st.tense}で描写。\n`;
+  s+=`- キャラの発言は行頭に [C:名前] を付ける。セリフと *動作・心理* を含めてよい。\n`;
+  s+=`- セリフと *地の文* は別の行に分ける。\n`;
+  s+=`- 1人が話すごとに新しい [C:名前] 行を作る。タグ以外の前置き・説明は書かない。\n`;
+  s+=`- ユーザー入力が行動指示（ト書き）の場合、その結果を [N] と関係者の反応として描写する。\n`;
+  s+=`- 登場人物は登録キャラに限らない。物語上必要なら、ユーザーの指示や場面に応じて新しい人物（モブ・敵・通行人など）を [C:名前] で登場させてよい。\n\n`;
+  s+=`# スタイル\n- 1ターンの長さ：${st.length} / 表現バランス：${st.expression}\n- 雰囲気：${(st.mood||[]).join("・")||"指定なし"} / 文体：${st.writingStyle}\n- 難易度：${st.difficulty}（キャラは性格と状況に即して自律的に行動）/ 展開速度：${st.pace}\n`;
+  if(st.choiceSuggestions)s+=`- 応答の最後に、ユーザーが取れる行動の選択肢を2〜3個、箇条書きで添える。\n`;
+  if(st.infobox)s+=`- 冒頭に【状況】や【心情】を1行で短く添えてよい。\n`;
+  s+=`\n# 世界観・状況\n${plot.description||"（指定なし）"}\n`;
+  if(plot.narratorInstruction)s+=`\n# ナレーター指示（地の文の方針）\n${plot.narratorInstruction}\n`;
+  s+=`\n# 主人公（ユーザー）\n- 名前：${pname}\n${persona&&persona.description?persona.description+"\n":""}`;
+  s+=`\n# 登場キャラクター\n`;
+  active.forEach(c=>{s+=`## ${c.name}\n${c.profile||""}\n`;
+    (plot.situationExamples||[]).filter(x=>x.characterName===c.name).forEach(x=>{s+=`口調サンプル：${x.text}\n`;});});
+  if(lore.length){s+=`\n# 追加設定（言及により有効）\n`;lore.forEach(e=>{s+=`- ${e.content}\n`;});}
+  return s;
+}
+function buildContents(session,persona,userInput){
+  const pname=persona?persona.name:"あなた";
+  const turns=[];
+  session.messages.forEach(m=>{
+    if(m.role==="user")turns.push({role:"user",text:m.content});
+    else turns.push({role:"model",text:m.raw||(m.blocks||[]).map(b=>b.type==="narr"?`[N] ${b.text}`:`[C:${b.name}] ${b.text}`).join("\n")});
+  });
+  turns.push({role:"user",text:userInput});
+  // 連続同roleをマージ（Gemini向け）
+  const merged=[];turns.forEach(t=>{const last=merged[merged.length-1];if(last&&last.role===t.role)last.text+="\n"+t.text;else merged.push({role:t.role,text:t.text});});
+  // 先頭はuserから始める必要 → modelで始まる場合は調整
+  while(merged.length&&merged[0].role==="model")merged.shift();
+  return merged.map(t=>({role:t.role,parts:[{text:t.text.replace(/\{\{user\}\}/g,pname)}]}));
+}
+function maxTokensByLength(len){return{"短い":300,"中間":600,"長い":1200,"自動":800}[len]||800;}
+async function callGemini(system,contents,st){
+  const key=S.settings.apiKey;if(!key)throw new Error("APIキーが未設定です。設定画面で入力してください。");
+  const model=S.settings.model||"gemini-2.5-flash";
+  const url=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
+  const body={
+    system_instruction:{parts:[{text:system}]},
+    contents,
+    generationConfig:{temperature:S.settings.temperature??0.9,maxOutputTokens:maxTokensByLength(st.length)},
+    safetySettings:["HARM_CATEGORY_HARASSMENT","HARM_CATEGORY_HATE_SPEECH","HARM_CATEGORY_SEXUALLY_EXPLICIT","HARM_CATEGORY_DANGEROUS_CONTENT"].map(c=>({category:c,threshold:"BLOCK_NONE"}))
+  };
+  const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  const data=await r.json();
+  if(!r.ok)throw new Error((data.error&&data.error.message)||("HTTP "+r.status));
+  const cand=data.candidates&&data.candidates[0];
+  if(!cand){const bf=data.promptFeedback&&data.promptFeedback.blockReason;throw new Error("応答が空です"+(bf?"（ブロック: "+bf+"）":""));}
+  const parts=cand.content&&cand.content.parts||[];
+  return parts.map(p=>p.text||"").join("");
+}
+function parseAI(raw){
+  const blocks=[];const lines=raw.split(/\r?\n/);let cur=null;
+  lines.forEach(line=>{
+    const mn=line.match(/^\s*\[N\]\s?(.*)$/);
+    const mc=line.match(/^\s*\[C:([^\]]+)\]\s?(.*)$/);
+    if(mn){if(cur)blocks.push(cur);cur={type:"narr",text:mn[1]};}
+    else if(mc){if(cur)blocks.push(cur);cur={type:"char",name:mc[1].trim(),text:mc[2]};}
+    else if(cur){cur.text+=(cur.text?"\n":"")+line;}
+    else if(line.trim()){cur={type:"narr",text:line};}
+  });
+  if(cur)blocks.push(cur);
+  return blocks.length?blocks:[{type:"narr",text:raw.trim()}];
+}
+let sending=false;
+async function sendMessage(){
+  if(sending)return;
+  const f=$("#cfield");const text=f.value.trim();if(!text)return;
+  const{session,plot}=CUR;const persona=S.personas.find(p=>p.id===session.personaId);
+  session.messages.push({id:uid(),role:"user",content:text,createdAt:now()});
+  f.value="";f.style.height="auto";saveSession(session);drawMessages();
+  sending=true;$("#csend").disabled=true;$("#typing").style.display="block";
+  try{
+    const sys=buildSystem(plot,session,persona,text);
+    const contents=buildContents(session,persona,text);
+    const raw=await callGemini(sys,contents,plot.style||defaultStyle());
+    const blocks=parseAI(raw);
+    session.messages.push({id:uid(),role:"ai",raw,blocks,createdAt:now()});
+    plot.talkCount=(plot.talkCount||0)+1;savePlot(plot);
+    saveSession(session);drawMessages();
+  }catch(err){
+    session.messages.push({id:uid(),role:"ai",raw:"",blocks:[{type:"narr",text:"⚠ "+err.message}],createdAt:now()});
+    drawMessages();
+  }finally{sending=false;$("#csend").disabled=false;$("#typing").style.display="none";}
+}
+
+/* ===================== 管理（ペルソナ・ロアブック） ===================== */
+function renderManage(){
+  APP.innerHTML=`
+    <header class="hd"><div class="ic" data-back>${back}</div><div class="titlewrap"><h1>管理</h1></div></header>
+    <div class="body">
+      <div class="sec-h">自分の分身（ペルソナ・全作品共通）</div>
+      <div id="personaList"></div>
+      <button class="add-btn" id="addPersona" style="margin-bottom:8px">＋ 分身を追加</button>
+      <div class="sec-h">設定集（ロアブック・全作品共通）</div>
+      <div id="loreList"></div>
+      <button class="add-btn" id="addLore">＋ 設定集を追加</button>
+    </div>`;
+  APP.querySelector("[data-back]").onclick=()=>go("home");
+  $("#addPersona").onclick=()=>{const p={id:uid(),name:"新しい分身",description:"",isDefault:S.personas.length===0,avatar:null};S.personas.push(p);savePersona(p);drawPersonas();};
+  $("#addLore").onclick=()=>{const l={id:uid(),title:"新しい設定集",description:"",entries:[]};S.lorebooks.push(l);saveLore(l);drawLore();};
+  drawPersonas();drawLore();
+}
+function drawPersonas(){
+  $("#personaList").innerHTML=S.personas.map(p=>`
+    <div class="ccard"><div class="cname"><input value="${esc(p.name)}" data-pn="${p.id}"><span class="cdel" data-pdel="${p.id}">🗑</span></div>
+      <label class="f">設定（見た目・立場など。指示文は不要）</label>
+      <textarea class="t" data-pd="${p.id}">${esc(p.description)}</textarea>
+      <div class="row-tg" style="border:none;padding-top:10px"><div class="lab">新しい会話で既定にする</div><div class="toggle ${p.isDefault?'on':''}" data-pdef="${p.id}"></div></div>
+    </div>`).join("");
+  const L=$("#personaList");
+  L.querySelectorAll("[data-pn]").forEach(el=>el.oninput=e=>{find("personas",el.dataset.pn).name=e.target.value;savePersona(find("personas",el.dataset.pn));});
+  L.querySelectorAll("[data-pd]").forEach(el=>el.oninput=e=>{find("personas",el.dataset.pd).description=e.target.value;savePersona(find("personas",el.dataset.pd));});
+  L.querySelectorAll("[data-pdel]").forEach(el=>el.onclick=()=>{if(S.personas.length<=1){toast("最低1つは必要です");return;}
+    if(confirm("削除しますか？")){S.personas=S.personas.filter(x=>x.id!==el.dataset.pdel);idbDel("personas",el.dataset.pdel);drawPersonas();}});
+  L.querySelectorAll("[data-pdef]").forEach(el=>el.onclick=()=>{S.personas.forEach(p=>{p.isDefault=(p.id===el.dataset.pdef);savePersona(p);});drawPersonas();});
+}
+function drawLore(){
+  $("#loreList").innerHTML=S.lorebooks.map(l=>`
+    <div class="ccard"><div class="cname"><input value="${esc(l.title)}" data-ln="${l.id}"><span class="cdel" data-ldel="${l.id}">🗑</span></div>
+      <input class="t" style="margin-bottom:10px" placeholder="簡単な説明（管理用・AIに渡らない）" value="${esc(l.description)}" data-ld="${l.id}">
+      <div data-entries="${l.id}">${(l.entries||[]).map((e,ei)=>`
+        <div class="lentry">
+          <input class="t" style="margin-bottom:8px" placeholder="キーワード（コンマ区切り）" value="${esc((e.keywords||[]).join(","))}" data-ek="${l.id}|${ei}">
+          <textarea class="t" placeholder="このキーワードが出たらAIに渡す内容" data-ec="${l.id}|${ei}">${esc(e.content)}</textarea>
+          <div style="text-align:right;margin-top:6px"><span class="cdel" data-edel="${l.id}|${ei}" style="font-size:13px;color:var(--muted);cursor:pointer">項目を削除</span></div>
+        </div>`).join("")}</div>
+      <button class="add-btn" data-eadd="${l.id}" style="padding:9px">＋ 項目を追加</button>
+    </div>`).join("");
+  const L=$("#loreList");
+  L.querySelectorAll("[data-ln]").forEach(el=>el.oninput=e=>{const l=find("lorebooks",el.dataset.ln);l.title=e.target.value;saveLore(l);});
+  L.querySelectorAll("[data-ld]").forEach(el=>el.oninput=e=>{const l=find("lorebooks",el.dataset.ld);l.description=e.target.value;saveLore(l);});
+  L.querySelectorAll("[data-ldel]").forEach(el=>el.onclick=()=>{if(confirm("設定集を削除しますか？")){S.lorebooks=S.lorebooks.filter(x=>x.id!==el.dataset.ldel);idbDel("lorebooks",el.dataset.ldel);
+    S.plots.forEach(p=>{p.linkedLorebookIds=(p.linkedLorebookIds||[]).filter(id=>id!==el.dataset.ldel);savePlot(p);});drawLore();}});
+  L.querySelectorAll("[data-ek]").forEach(el=>el.oninput=e=>{const[id,ei]=el.dataset.ek.split("|");const l=find("lorebooks",id);
+    l.entries[+ei].keywords=e.target.value.split(",").map(s=>s.trim()).filter(Boolean);saveLore(l);});
+  L.querySelectorAll("[data-ec]").forEach(el=>el.oninput=e=>{const[id,ei]=el.dataset.ec.split("|");const l=find("lorebooks",id);l.entries[+ei].content=e.target.value;saveLore(l);});
+  L.querySelectorAll("[data-eadd]").forEach(el=>el.onclick=()=>{const l=find("lorebooks",el.dataset.eadd);l.entries.push({id:uid(),title:"",keywords:[],content:""});saveLore(l);drawLore();});
+  L.querySelectorAll("[data-edel]").forEach(el=>el.onclick=()=>{const[id,ei]=el.dataset.edel.split("|");const l=find("lorebooks",id);l.entries.splice(+ei,1);saveLore(l);drawLore();});
+}
+function find(store,id){return S[store].find(x=>x.id===id);}
+
+/* ===================== 設定 ===================== */
+function renderSettings(){
+  APP.innerHTML=`
+    <header class="hd"><div class="ic" data-back>${back}</div><div class="titlewrap"><h1>設定</h1></div></header>
+    <div class="body">
+      <div class="sec-h">AI接続（Gemini）</div>
+      <div class="field-wrap"><label class="f">APIキー</label>
+        <input class="t" id="s_key" type="password" value="${esc(S.settings.apiKey)}" placeholder="Google AI Studio のキー">
+        <div class="hint">この端末内（ブラウザのDB）にのみ保存され、外部には送りません。Geminiへのリクエスト時だけ使われます。</div></div>
+      <div class="field-wrap"><label class="f">モデル名</label>
+        <input class="t" id="s_model" value="${esc(S.settings.model)}" placeholder="gemini-2.5-flash">
+        <div class="hint">モデル名は変わることがあります。動かない場合はここを変更してください。</div></div>
+      <div class="field-wrap"><label class="f">創造性（temperature）：<span id="tv">${S.settings.temperature}</span></label>
+        <input type="range" min="0" max="1.5" step="0.05" value="${S.settings.temperature}" id="s_temp" style="width:100%"></div>
+      <button class="add-btn" id="s_save">保存</button>
+      <div class="hint" style="margin-top:6px">※ NSFWを安定して出したい場合、Geminiは仕様上ハードな表現に向きません。将来は別モデルへの差し替えを想定しています。</div>
+
+      <div class="sec-h">データ</div>
+      <button class="add-btn" id="s_export" style="margin-bottom:10px">すべてのデータを書き出す（バックアップ）</button>
+      <button class="add-btn" id="s_import" style="margin-bottom:10px">データを読み込む（復元）</button>
+      <button class="add-btn danger" id="s_wipe">すべてのデータを削除</button>
+    </div>`;
+  APP.querySelector("[data-back]").onclick=()=>go("home");
+  $("#s_temp").oninput=e=>{$("#tv").textContent=e.target.value;};
+  $("#s_save").onclick=()=>{S.settings.apiKey=$("#s_key").value.trim();S.settings.model=$("#s_model").value.trim()||"gemini-2.5-flash";
+    S.settings.temperature=parseFloat($("#s_temp").value);saveSettings();toast("保存しました");};
+  $("#s_export").onclick=exportData;
+  $("#s_import").onclick=importData;
+  $("#s_wipe").onclick=()=>{if(confirm("本当にすべて削除しますか？元に戻せません。")){wipeAll();}};
+}
+function exportData(){
+  const dump={plots:S.plots,personas:S.personas,lorebooks:S.lorebooks,sessions:S.sessions,settings:{model:S.settings.model,temperature:S.settings.temperature}};
+  const blob=new Blob([JSON.stringify(dump)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="monogatari_backup_"+Date.now()+".json";a.click();
+  toast("書き出しました");
+}
+function importData(){
+  const fp=$("#filePick");fp.value="";fp.accept="application/json";
+  fp.onchange=()=>{const f=fp.files[0];if(!f){fp.accept="image/*";return;}
+    const r=new FileReader();r.onload=async()=>{try{const d=JSON.parse(r.result);
+      for(const s of ["plots","personas","lorebooks","sessions"]){if(d[s]){for(const o of d[s]){await idbPut(s,o);}}}
+      if(d.settings){S.settings=Object.assign(S.settings,d.settings);await saveSettings();}
+      await loadAll();toast("読み込みました");go("home");
+    }catch(e){toast("読み込みに失敗しました");}finally{fp.accept="image/*";}};
+    r.readAsText(f);};
+  fp.click();
+}
+async function wipeAll(){
+  for(const s of ["plots","personas","lorebooks","sessions"]){const all=await idbAll(s);for(const o of all)await idbDel(s,o.id);}
+  await loadAll();toast("削除しました");go("home");
+}
+
+/* ===================== 起動 ===================== */
+(async function(){
+  try{await openDB();await loadAll();}catch(e){APP.innerHTML='<div class="center">起動に失敗しました：'+esc(e.message)+'</div>';return;}
+  render();
+})();
+</script>
+</body>
+</html>
