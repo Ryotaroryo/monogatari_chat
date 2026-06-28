@@ -70,7 +70,7 @@
   .tab.on{color:#fff;border-bottom-color:var(--accent)}
   .pane{display:none}.pane.on{display:block}
 
-  .cover-slot{width:132px;height:180px;border-radius:14px;border:1.5px dashed var(--surface-edge);background:var(--field);
+  .cover-slot{width:132px;height:180px;border-radius:14px;border:1.5px dashed var(--surface-edge);background:var(--field);position:relative;
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--muted);overflow:hidden;position:relative;cursor:pointer}
   .cover-slot.filled{border:none}
   .cover-slot svg{width:26px;height:26px}.cover-slot small{font-size:11px}
@@ -83,6 +83,7 @@
   .pic .badge{position:absolute;top:5px;left:5px;background:var(--accent);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;z-index:2}
   .pic .setmain{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.5);color:#cfc6ee;font-size:9.5px;text-align:center;padding:3px;cursor:pointer;z-index:2}
   .pic .del{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.55);color:#fff;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:11px;z-index:2}
+  .cover-slot .del{position:absolute;background:rgba(0,0,0,.55);color:#fff;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:13px;z-index:3;cursor:pointer}
   .pic.add{border:1.5px dashed var(--surface-edge);display:grid;place-items:center;color:var(--accent);font-size:24px;background:var(--field)}
 
   .ccard{background:var(--surface);border:1px solid var(--surface-edge);border-radius:14px;padding:14px;margin-bottom:14px}
@@ -139,7 +140,12 @@
   .msg-tools span{font-size:11px;color:var(--muted);cursor:pointer}
   .divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:11.5px;letter-spacing:.06em;margin:2px 4px}
   .divider::before,.divider::after{content:"";height:1px;flex:1;background:var(--line)}
-  .typing{color:var(--muted);font-size:13px;padding:6px 16px}
+  .typing{display:none;align-items:center;gap:5px;padding:8px 18px}
+  .typing.show{display:flex}
+  .typing .dot{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:tbounce 1.1s infinite ease-in-out}
+  .typing .dot:nth-child(2){animation-delay:.15s}
+  .typing .dot:nth-child(3){animation-delay:.3s}
+  @keyframes tbounce{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-4px);opacity:1}}
 
   .chatinput{position:sticky;bottom:0;display:flex;align-items:flex-end;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));
     background:rgba(16,15,21,.92);backdrop-filter:blur(12px);border-top:1px solid var(--line);margin:0 -16px -40px}
@@ -168,6 +174,7 @@
   .acts{display:flex;gap:10px}
   .acts button{flex:1;padding:11px;border-radius:12px;font-size:13.5px;font-weight:600;border:none;cursor:pointer;font-family:inherit}
   .btn-cancel{background:var(--field);color:var(--name)}.btn-apply{background:linear-gradient(135deg,var(--accent-dim),var(--accent));color:#fff}
+  .btn-del{background:#3a2228;color:#E08A8A}
 
   .lentry{background:var(--surface);border:1px solid var(--surface-edge);border-radius:12px;padding:12px;margin-bottom:10px}
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#2A2838;color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;z-index:80;opacity:0;transition:.25s;pointer-events:none;border:1px solid var(--surface-edge)}
@@ -185,7 +192,7 @@
   </div>
   <div class="drag-note">枠をドラッグで位置調整</div>
   <div class="zoom"><span>－</span><input type="range" min="100" max="300" value="100" id="zoom"><span>＋</span></div>
-  <div class="acts"><button class="btn-cancel" id="cropCancel">キャンセル</button><button class="btn-apply" id="cropApply">適用</button></div>
+  <div class="acts"><button class="btn-cancel" id="cropCancel">キャンセル</button><button class="btn-del" id="cropDelete" style="display:none">削除</button><button class="btn-apply" id="cropApply">適用</button></div>
 </div></div>
 <input type="file" id="filePick" accept="image/*" style="display:none">
 <div class="toast" id="toast"></div>
@@ -219,7 +226,7 @@ function kvGet(k){return new Promise((res)=>{const r=tx("kv","readonly").get(k);
 function kvPut(k,v){return new Promise((res,rej)=>{const r=tx("kv","readwrite").put({k,v});r.onsuccess=()=>res();r.onerror=()=>rej(r.error);});}
 
 /* ===================== 状態（メモリキャッシュ） ===================== */
-const S={plots:[],personas:[],lorebooks:[],sessions:[],settings:{apiKey:"",model:"gemini-2.5-flash",temperature:0.9}};
+const S={plots:[],personas:[],lorebooks:[],sessions:[],settings:{apiKey:"",model:"meta-llama/llama-3.3-70b-instruct:free",temperature:0.9}};
 async function loadAll(){
   S.plots=await idbAll("plots"); S.personas=await idbAll("personas");
   S.lorebooks=await idbAll("lorebooks"); S.sessions=await idbAll("sessions");
@@ -267,11 +274,12 @@ function pickImage(){return new Promise(res=>{
 
 /* 画像調整モーダル */
 let cropState=null;
-function openCrop(shape,label,img,onApply){
-  cropState={img:Object.assign({},img),onApply};
-  const frame=$("#frame"),title=$("#cropTitle"),zoom=$("#zoom");
+function openCrop(shape,label,img,onApply,onDelete){
+  cropState={img:Object.assign({},img),onApply,onDelete};
+  const frame=$("#frame"),title=$("#cropTitle"),zoom=$("#zoom"),delBtn=$("#cropDelete");
   frame.className="frame "+(shape==="portrait"?"portrait":"circle");
   title.textContent=(label||"")+"の表示位置を調整";
+  delBtn.style.display=onDelete?"block":"none";
   frame.innerHTML=`<img id="cropImg" src="${img.src}">`;
   $("#fullPrev").innerHTML=`<img src="${img.src}">`;
   const fw=shape==="portrait"?120:150, fh=shape==="portrait"?160:150;
@@ -289,19 +297,28 @@ function openCrop(shape,label,img,onApply){
   if(im.complete)im.onload();
   zoom.oninput=()=>{scale=zoom.value/100;apply();};
   let drag=false,sx,sy;
+  function endDrag(e){if(!drag)return;drag=false;frame.style.cursor="grab";
+    try{frame.releasePointerCapture(e.pointerId);}catch(_){}}
   frame.onpointerdown=e=>{drag=true;sx=e.clientX-px;sy=e.clientY-py;frame.setPointerCapture(e.pointerId);frame.style.cursor="grabbing";};
   frame.onpointermove=e=>{if(!drag)return;px=e.clientX-sx;py=e.clientY-sy;apply();};
-  frame.onpointerup=()=>{drag=false;frame.style.cursor="grab";};
+  frame.onpointerup=endDrag;
+  frame.onpointercancel=endDrag;
+  frame.onlostpointercapture=()=>{drag=false;frame.style.cursor="grab";};
   cropState._get=()=>{const c=cropState._calc||{bw:fw,bh:fh};
     return{focalX:Math.min(1,Math.max(0,0.5-px/c.bw)),focalY:Math.min(1,Math.max(0,0.5-py/c.bh)),zoom:scale};};
   $("#cropModal").classList.add("on");
 }
 $("#cropCancel").onclick=()=>$("#cropModal").classList.remove("on");
+$("#cropDelete").onclick=()=>{
+  if(cropState&&cropState.onDelete)cropState.onDelete();
+  $("#cropModal").classList.remove("on");
+};
 $("#cropApply").onclick=()=>{
   if(cropState){const g=cropState._get();const img=Object.assign(cropState.img,g);cropState.onApply&&cropState.onApply(img);}
   $("#cropModal").classList.remove("on");
 };
 $("#cropModal").addEventListener("click",e=>{if(e.target.id==="cropModal")$("#cropModal").classList.remove("on");});
+
 
 /* ===================== 画面ルーター ===================== */
 const VIEW={name:"home"};
@@ -388,7 +405,7 @@ function edBasic(){
   <label class="f">カバー画像（一覧で表示されるサムネ）</label>
   <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:20px">
     <div class="cover-slot ${ED.coverImage?'filled':''}" id="coverSlot">
-      ${ED.coverImage?imgEl(ED.coverImage)+'<div class="edit">位置を調整</div>':
+      ${ED.coverImage?imgEl(ED.coverImage)+'<div class="edit">位置を調整</div><span class="del" id="coverDel" style="top:6px;right:6px">×</span>':
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg><small>カバーを貼る</small>'}
     </div>
     <div class="hint" style="margin:0">縦長カバー。画像は切り取らず保持します。<br><br>未設定なら<b style="color:var(--name)">最初のキャラのメイン画像</b>が使われます。</div>
@@ -465,9 +482,10 @@ function bindTab(p){
     $("#f_title").oninput=e=>ED.title=e.target.value;
     $("#f_desc").oninput=e=>ED.description=e.target.value;
     $("#f_narr").oninput=e=>ED.narratorInstruction=e.target.value;
-    $("#coverSlot").onclick=async()=>{
+    $("#coverSlot").onclick=async(ev)=>{
+      if(ev.target.id==="coverDel"){ev.stopPropagation();ED.coverImage=null;edTab("basic");return;}
       let img=ED.coverImage; if(!img){img=await pickImage(); if(!img)return; ED.coverImage=img;}
-      openCrop("portrait","カバー",ED.coverImage,r=>{ED.coverImage=r;edTab("basic");});
+      openCrop("portrait","カバー",ED.coverImage,r=>{ED.coverImage=r;edTab("basic");},()=>{ED.coverImage=null;edTab("basic");});
     };
   }
   if(p==="chara"){
@@ -481,7 +499,8 @@ function bindTab(p){
     b.querySelectorAll("[data-delimg]").forEach(el=>el.onclick=e=>{e.stopPropagation();const c=ED.characters[+el.dataset.delimg];
       c.images=c.images.filter(i=>i.id!==el.dataset.mid);if(c.mainImageId===el.dataset.mid)c.mainImageId=c.images[0]?c.images[0].id:null;edTab("chara");});
     b.querySelectorAll(".pic[data-cedit]").forEach(el=>el.onclick=()=>{const ci=+el.dataset.cedit;const c=ED.characters[ci];
-      const img=c.images.find(i=>i.id===el.dataset.img);if(!img)return;openCrop("circle","アイコン",img,r=>{Object.assign(img,r);edTab("chara");});});
+      const img=c.images.find(i=>i.id===el.dataset.img);if(!img)return;openCrop("circle","アイコン",img,r=>{Object.assign(img,r);edTab("chara");},()=>{
+        c.images=c.images.filter(i=>i.id!==img.id);if(c.mainImageId===img.id)c.mainImageId=c.images[0]?c.images[0].id:null;edTab("chara");});});
   }
   if(p==="lore"){
     b.querySelectorAll("[data-link]").forEach(el=>el.onclick=()=>{const id=el.dataset.link;
@@ -547,7 +566,7 @@ function renderChat(sessionId){
       <div class="menu" data-cmenu>≡</div>
     </header>
     <div class="body"><div class="disclaimer">返答はすべてAIが生成した内容です</div><div class="stream" id="stream"></div>
-      <div class="typing" id="typing" style="display:none">…生成中</div></div>
+      <div class="typing" id="typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
     <div class="chatinput">
       <div class="star" id="cstar">*</div>
       <textarea id="cfield" rows="1" placeholder="セリフや行動を書く…  *行動は囲む*"></textarea>
@@ -660,23 +679,38 @@ function buildContents(session,persona,userInput){
   return merged.map(t=>({role:t.role,parts:[{text:t.text.replace(/\{\{user\}\}/g,pname)}]}));
 }
 function maxTokensByLength(len){return{"短い":300,"中間":600,"長い":1200,"自動":800}[len]||800;}
-async function callGemini(system,contents,st){
+async function callAI(system,contents,st){
   const key=S.settings.apiKey;if(!key)throw new Error("APIキーが未設定です。設定画面で入力してください。");
-  const model=S.settings.model||"gemini-2.5-flash";
-  const url=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
+  const model=S.settings.model||"meta-llama/llama-3.3-70b-instruct:free";
+  const url="https://openrouter.ai/api/v1/chat/completions";
+  // Gemini形式（role:user/model, parts:[{text}]）→ OpenAI互換形式（role:user/assistant, content:string）に変換
+  const messages=[{role:"system",content:system}].concat(
+    contents.map(c=>({role:c.role==="model"?"assistant":"user",content:(c.parts||[]).map(p=>p.text||"").join("")}))
+  );
   const body={
-    system_instruction:{parts:[{text:system}]},
-    contents,
-    generationConfig:{temperature:S.settings.temperature??0.9,maxOutputTokens:maxTokensByLength(st.length)},
-    safetySettings:["HARM_CATEGORY_HARASSMENT","HARM_CATEGORY_HATE_SPEECH","HARM_CATEGORY_SEXUALLY_EXPLICIT","HARM_CATEGORY_DANGEROUS_CONTENT"].map(c=>({category:c,threshold:"BLOCK_NONE"}))
+    model,
+    messages,
+    temperature:S.settings.temperature??0.9,
+    max_tokens:maxTokensByLength(st.length)
   };
-  const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  const r=await fetch(url,{method:"POST",headers:{
+    "Content-Type":"application/json",
+    "Authorization":"Bearer "+key,
+    "HTTP-Referer":location.origin||"https://monogatari-chat.local",
+    "X-Title":"monogatari_chat"
+  },body:JSON.stringify(body)});
   const data=await r.json();
-  if(!r.ok)throw new Error((data.error&&data.error.message)||("HTTP "+r.status));
-  const cand=data.candidates&&data.candidates[0];
-  if(!cand){const bf=data.promptFeedback&&data.promptFeedback.blockReason;throw new Error("応答が空です"+(bf?"（ブロック: "+bf+"）":""));}
-  const parts=cand.content&&cand.content.parts||[];
-  return parts.map(p=>p.text||"").join("");
+  if(!r.ok){
+    if(r.status===401||r.status===403)throw new Error("APIキーが正しくないようです。設定を確認してください。");
+    if(r.status===429)throw new Error("利用上限に達したようです。少し時間を置いてお試しください。");
+    throw new Error("接続できませんでした。");
+  }
+  const choice=data.choices&&data.choices[0];
+  if(!choice||!choice.message)throw new Error("ブロックされました。");
+  const reason=choice.finish_reason;
+  const text=(choice.message.content||"").trim();
+  if(!text || reason==="content_filter")throw new Error("ブロックされました。");
+  return text;
 }
 function parseAI(raw){
   const blocks=[];const lines=raw.split(/\r?\n/);let cur=null;
@@ -698,11 +732,11 @@ async function sendMessage(){
   const{session,plot}=CUR;const persona=S.personas.find(p=>p.id===session.personaId);
   session.messages.push({id:uid(),role:"user",content:text,createdAt:now()});
   f.value="";f.style.height="auto";saveSession(session);drawMessages();
-  sending=true;$("#csend").disabled=true;$("#typing").style.display="block";
+  sending=true;$("#csend").disabled=true;$("#typing").classList.add("show");
   try{
     const sys=buildSystem(plot,session,persona,text);
     const contents=buildContents(session,persona,text);
-    const raw=await callGemini(sys,contents,plot.style||defaultStyle());
+    const raw=await callAI(sys,contents,plot.style||defaultStyle());
     const blocks=parseAI(raw);
     session.messages.push({id:uid(),role:"ai",raw,blocks,createdAt:now()});
     plot.talkCount=(plot.talkCount||0)+1;savePlot(plot);
@@ -710,7 +744,7 @@ async function sendMessage(){
   }catch(err){
     session.messages.push({id:uid(),role:"ai",raw:"",blocks:[{type:"narr",text:"⚠ "+err.message}],createdAt:now()});
     drawMessages();
-  }finally{sending=false;$("#csend").disabled=false;$("#typing").style.display="none";}
+  }finally{sending=false;$("#csend").disabled=false;$("#typing").classList.remove("show");}
 }
 
 /* ===================== 管理（ペルソナ・ロアブック） ===================== */
@@ -774,17 +808,17 @@ function renderSettings(){
   APP.innerHTML=`
     <header class="hd"><div class="ic" data-back>${back}</div><div class="titlewrap"><h1>設定</h1></div></header>
     <div class="body">
-      <div class="sec-h">AI接続（Gemini）</div>
+      <div class="sec-h">AI接続（OpenRouter）</div>
       <div class="field-wrap"><label class="f">APIキー</label>
-        <input class="t" id="s_key" type="password" value="${esc(S.settings.apiKey)}" placeholder="Google AI Studio のキー">
-        <div class="hint">この端末内（ブラウザのDB）にのみ保存され、外部には送りません。Geminiへのリクエスト時だけ使われます。</div></div>
+        <input class="t" id="s_key" type="password" value="${esc(S.settings.apiKey)}" placeholder="OpenRouter のAPIキー（sk-or-...）">
+        <div class="hint">openrouter.ai で発行したキー。この端末内（ブラウザのDB）にのみ保存され、外部には送りません。リクエスト時だけ使われます。</div></div>
       <div class="field-wrap"><label class="f">モデル名</label>
-        <input class="t" id="s_model" value="${esc(S.settings.model)}" placeholder="gemini-2.5-flash">
-        <div class="hint">モデル名は変わることがあります。動かない場合はここを変更してください。</div></div>
+        <input class="t" id="s_model" value="${esc(S.settings.model)}" placeholder="meta-llama/llama-3.3-70b-instruct:free">
+        <div class="hint">openrouter.ai のモデル一覧から、末尾に :free のついたモデル名をそのままコピーして貼れます。</div></div>
       <div class="field-wrap"><label class="f">創造性（temperature）：<span id="tv">${S.settings.temperature}</span></label>
         <input type="range" min="0" max="1.5" step="0.05" value="${S.settings.temperature}" id="s_temp" style="width:100%"></div>
       <button class="add-btn" id="s_save">保存</button>
-      <div class="hint" style="margin-top:6px">※ NSFWを安定して出したい場合、Geminiは仕様上ハードな表現に向きません。将来は別モデルへの差し替えを想定しています。</div>
+      <div class="hint" style="margin-top:6px">※ モデルによって表現の幅が異なります。通りにくければ、別の :free モデルに変えて試してみてください。</div>
 
       <div class="sec-h">データ</div>
       <button class="add-btn" id="s_export" style="margin-bottom:10px">すべてのデータを書き出す（バックアップ）</button>
@@ -793,7 +827,7 @@ function renderSettings(){
     </div>`;
   APP.querySelector("[data-back]").onclick=()=>go("home");
   $("#s_temp").oninput=e=>{$("#tv").textContent=e.target.value;};
-  $("#s_save").onclick=()=>{S.settings.apiKey=$("#s_key").value.trim();S.settings.model=$("#s_model").value.trim()||"gemini-2.5-flash";
+  $("#s_save").onclick=()=>{S.settings.apiKey=$("#s_key").value.trim();S.settings.model=$("#s_model").value.trim()||"meta-llama/llama-3.3-70b-instruct:free";
     S.settings.temperature=parseFloat($("#s_temp").value);saveSettings();toast("保存しました");};
   $("#s_export").onclick=exportData;
   $("#s_import").onclick=importData;
